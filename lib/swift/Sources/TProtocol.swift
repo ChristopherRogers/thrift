@@ -45,7 +45,10 @@ public enum TType: Int32 {
   case utf16    = 17
 }
 
-public protocol TProtocol {
+public typealias TProtocolField = (name: String, type: TType, fieldID: Int32)
+
+public protocol TProtocol: class {
+  
   var transport: TTransport { get set }
   init(on transport: TTransport)
   // Reading Methods
