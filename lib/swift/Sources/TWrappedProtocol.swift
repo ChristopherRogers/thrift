@@ -34,6 +34,15 @@ open class TWrappedProtocol<Protocol: TProtocol> : TProtocol {
       concreteProtocol.transport = newValue
     }
   }
+  
+  public var unconsumedField: TProtocolField? {
+    get {
+      return concreteProtocol.unconsumedField
+    }
+    set {
+      concreteProtocol.unconsumedField = newValue
+    }
+  }
 
   public required init(on transport: TTransport) {
     self.concreteProtocol = Protocol(on: transport)

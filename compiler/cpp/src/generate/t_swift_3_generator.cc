@@ -937,20 +937,14 @@ void t_swift_3_generator::generate_swift_struct_thrift_extension(ofstream& out,
 
 void t_swift_3_generator::generate_swift_union_reader(ofstream& out,
                                                      t_struct* tstruct) {
-  indent(out) << "public static func read(from proto: TProtocol) throws -> "
-              << tstruct->get_name();
+  indent(out) << "public init<In: TProtocol>(from proto: In) throws";
   block_open(out);
   indent(out) << "_ = try proto.readStructBegin()" << endl;
+  out << endl;
 
-  indent(out) << "var ret: " << tstruct->get_name() << "?";
-  out << endl;
-  indent(out) << "fields: while true";
-  block_open(out);
-  out << endl;
   indent(out) << "let (_, fieldType, fieldID) = try proto.readFieldBegin()" << endl << endl;
   indent(out) << "switch (fieldID, fieldType)";
   block_open(out);
-  indent(out) << "case (_, .stop):            break fields" << endl;
 
   const vector<t_field*>& fields = tstruct->get_members();
   vector<t_field*>::const_iterator f_iter;
@@ -987,29 +981,23 @@ void t_swift_3_generator::generate_swift_union_reader(ofstream& out,
     }
 
     // indent_up();
-    indent(out) << padding << "ret = " << tstruct->get_name() << "."
+    indent(out) << padding << "self = " << tstruct->get_name() << "."
                 << (*f_iter)->get_name() << "(val: " << "try "
                 << type_name((*f_iter)->get_type(), false, false)
-                << ".read(from: proto))" << endl;
+                << "(from: proto))" << endl;
   }
 
+  indent(out) << "case (_, .stop):            "
+              << "throw TProtocolError(message: (\"Missing required value for type: \\(\""
+              << tstruct->get_name() << "\")\")" << endl;
   indent(out) << "case let (_, unknownType):  try proto.skip(type: unknownType)" << endl;
 
   block_close(out);
-  indent(out) << "try proto.readFieldEnd()" << endl;
+
+  indent(out) << "try proto.readFieldEnd()";
 
   block_close(out);
   out << endl;
-  indent(out) << "if let ret = ret";
-  block_open(out);
-  indent(out) << "return ret" << endl;
-  block_close(out);
-  out << endl;
-  indent(out) << "throw TProtocolError(error: .unknown, message: \"Missing required value for type: "
-              << tstruct->get_name() << "\")";
-  block_close(out);
-  out << endl;
-
 }
 
 /**
@@ -1027,8 +1015,7 @@ void t_swift_3_generator::generate_swift_struct_reader(ofstream& out,
 
   string visibility = is_private ? "fileprivate" : "public";
 
-  indent(out) << visibility << " static func read(from proto: TProtocol) throws -> "
-              << tstruct->get_name();
+  indent(out) << visibility << " convenience init<In: TProtocol>(from proto: In) throws";
 
   block_open(out);
 
@@ -1037,105 +1024,22 @@ void t_swift_3_generator::generate_swift_struct_reader(ofstream& out,
   const vector<t_field*>& fields = tstruct->get_members();
   vector<t_field*>::const_iterator f_iter;
 
+  out << endl;
+
   for (f_iter = fields.begin(); f_iter != fields.end(); ++f_iter) {
     bool optional = field_is_optional(*f_iter);
-    indent(out) << "var " << maybe_escape_identifier((*f_iter)->get_name()) << ": "
-                << type_name((*f_iter)->get_type(), optional, !optional) << endl;
+    indent(out) << "let " << maybe_escape_identifier((*f_iter)->get_name()) << ": "
+                << type_name((*f_iter)->get_type(), optional, false)
+                << " = try proto.readField(name: \"" << (*f_iter)->get_name() << "\", "
+                << "id: " << (*f_iter)->get_key() << ")" << endl;
   }
-
-  out << endl;
-
-  // Loop over reading in fields
-  indent(out) << "fields: while true";
-
-  block_open(out);
-
-  out << endl;
-
-  indent(out) << "let (_, fieldType, fieldID) = try proto.readFieldBegin()" << endl << endl;
-  indent(out) << "switch (fieldID, fieldType)";
-
-  block_open(out);
-
-  indent(out) << "case (_, .stop):            break fields" << endl;
-  // indent_up();
-  // indent(out) << "break fields" << endl << endl;
-  // indent_down();
-
-  // Generate deserialization code for known cases
-  for (f_iter = fields.begin(); f_iter != fields.end(); ++f_iter) {
-    bool optional = field_is_optional(*f_iter);
-    indent(out) << "case (" << (*f_iter)->get_key() << ", " << type_to_enum((*f_iter)->get_type()) << "):";// << endl;
-    string padding = "";
-
-    t_type* type = get_true_type((*f_iter)->get_type());
-    if (type->is_base_type()) {
-      t_base_type::t_base tbase = ((t_base_type*)type)->get_base();
-      switch (tbase) {
-        case t_base_type::TYPE_STRING:
-        case t_base_type::TYPE_DOUBLE:
-          padding = "           ";
-          break;
-
-        case t_base_type::TYPE_BOOL:
-        case t_base_type::TYPE_I8:
-          padding = "            ";
-          break;
-        case t_base_type::TYPE_I16:
-        case t_base_type::TYPE_I32:
-        case t_base_type::TYPE_I64:
-          padding = "             ";
-          break;
-        default: break;
-      }
-    } else if (type->is_enum() || type->is_set() || type->is_map()) {
-      padding = "             ";
-    } else if (type->is_struct() || type->is_xception()) {
-      padding = "           ";
-    } else if (type->is_list()) {
-      padding = "            ";
-    }
-
-    // indent_up();
-    out << padding << maybe_escape_identifier((*f_iter)->get_name()) << " = try "
-        << type_name((*f_iter)->get_type(), false, false) << ".read(from: proto)" << endl;
-    // indent(out) << maybe_escape_identifier((*f_iter)->get_name()) << " = try proto.read() as "
-    //             << type_name((*f_iter)->get_type()) << endl << endl;
-    // indent_down();
-
-  }
-
-  indent(out) << "case let (_, unknownType):  try proto.skip(type: unknownType)" << endl;
-
-  block_close(out);
-
-  out << endl;
-
-  // Read field end marker
-  indent(out) << "try proto.readFieldEnd()" << endl;
-
-  block_close(out);
 
   out << endl;
 
   indent(out) << "try proto.readStructEnd()" << endl;
-
-  if (struct_has_required_fields(tstruct)) {
-    // performs various checks (e.g. check that all required fields are set)
-    indent(out) << "// Required fields" << endl;
-
-    for (f_iter = fields.begin(); f_iter != fields.end(); ++f_iter) {
-      if (field_is_optional(*f_iter)) {
-        continue;
-      }
-      indent(out) << "try proto.validateValue(" << (*f_iter)->get_name() << ", "
-                  << "named: \"" << (*f_iter)->get_name() << "\")" << endl;
-    }
-  }
-
   out << endl;
 
-  indent(out) << "return " << tstruct->get_name() << "(";
+  indent(out) << "self.init(";
   for (f_iter = fields.begin(); f_iter != fields.end();) {
     out << (*f_iter)->get_name() << ": " << maybe_escape_identifier((*f_iter)->get_name());
     if (++f_iter != fields.end()) {
@@ -1491,15 +1395,15 @@ void t_swift_3_generator::generate_swift_service_protocol_async(ofstream& out, t
 void t_swift_3_generator::generate_swift_service_client(ofstream& out,
                                                                 t_service* tservice) {
 
-  indent(out) << "public class " << tservice->get_name() << "Client";// : "
+  indent(out) << "public class " << tservice->get_name() << "Client<In, Out>";// : "
 
   // Inherit from ParentClient
   t_service* parent = tservice->get_extends();
 
   out << " : " << ((parent == NULL) ? "TClient" : parent->get_name() + "Client");
-
-  out <<  " /* , " << tservice->get_name() << " */";
-
+  out << "<In, Out>";
+  out << " /* , " << tservice->get_name() << " */";
+  out << " where In: TProtocol, Out: TProtocol";
 
   block_open(out);
   out << endl;
@@ -1547,19 +1451,30 @@ void t_swift_3_generator::generate_swift_service_client(ofstream& out,
 void t_swift_3_generator::generate_swift_service_client_async(ofstream& out,
                                                                       t_service* tservice) {
 
-  indent(out) << "public class " << tservice->get_name() << "AsyncClient<Protocol: TProtocol, Factory: TAsyncTransportFactory>";// : "
+  indent(out) << "public class " << tservice->get_name() << "AsyncClient<In, Out, Factory>";// : "
 
   // Inherit from ParentClient
   t_service* parent = tservice->get_extends();
 
-  out << " : " << ((parent == NULL) ? "T" :  parent->get_name()) + "AsyncClient<Protocol, Factory>";
+  out << " : " << ((parent == NULL) ? "T" :  parent->get_name()) + "AsyncClient<In, Out, Factory>";
   out <<  " /* , " << tservice->get_name() << " */";
+  
+  out << endl;
+  indent_up();
+  indent(out) << "where" << endl;
+  indent(out) << "In: TProtocol," << endl;
+  indent(out) << "Out: TProtocol," << endl;
+  indent(out) << "Factory: TAsyncTransportFactory";
+  indent_down();
 
   block_open(out);
 
   out << endl;
 
   block_close(out);
+//public class foo_serviceAsyncClient<Protocol: TProtocol, Factory: TAsyncTransportFactory> : TAsyncClient<Protocol, Factory> /* , foo_service */ {
+//
+//}
 
   out << endl;
 }
@@ -1573,14 +1488,14 @@ void t_swift_3_generator::generate_swift_service_client_async(ofstream& out,
 void t_swift_3_generator::generate_swift_service_server(ofstream& out,
                                                                 t_service* tservice) {
 
-  indent(out) << "public class " << tservice->get_name() << "Processor /* " << tservice->get_name() << " */";
+  indent(out) << "public class " << tservice->get_name() << "Processor<In: TProtocol, Out: TProtocol> /* " << tservice->get_name() << " */";
 
   block_open(out);
 
   out << endl;
 
   out << indent() << "typealias ProcessorHandlerDictionary = "
-                  << "[String: (Int32, TProtocol, TProtocol, " << tservice->get_name() << ") throws -> Void]" << endl
+                  << "[String: (Int32, In, Out, " << tservice->get_name() << ") throws -> Void]" << endl
       << endl
       << indent() << "public var service: " << tservice->get_name() << endl
       << endl
@@ -1621,7 +1536,7 @@ void t_swift_3_generator::generate_swift_service_client_send_function_implementa
   t_struct* arg_struct = tfunction->get_arglist();
 
   // Open function
-  indent(out) << "private func " << send_function.get_name() << "(" << argument_list(tfunction->get_arglist(), needs_protocol ? "on outProtocol" : "", true, true) << ") throws";
+  indent(out) << "private func " << send_function.get_name() << "(" << argument_list(tfunction->get_arglist(), needs_protocol ? "on outProtocol: Out" : "", true, true) << ") throws";
   block_open(out);
 
   // Serialize the request
@@ -1672,7 +1587,7 @@ void t_swift_3_generator::generate_swift_service_client_recv_function_implementa
   indent(out) << "private func recv_" << tfunction->get_name() << "(";
 
   if (needs_protocol) {
-    out << "on inProtocol: TProtocol";
+    out << "on inProtocol: In";
   }
 
   out << ") throws";
@@ -1696,7 +1611,7 @@ void t_swift_3_generator::generate_swift_service_client_recv_function_implementa
   }
 
   string return_type_name = type_name(tfunction->get_returntype());
-  out << "try " << resultname << ".read(from: inProtocol)" << endl;
+  out << "try " << resultname << "(from: inProtocol)" << endl;
 
   indent(out) << "try inProtocol.readMessageEnd()" << endl << endl;
 
@@ -1866,8 +1781,8 @@ void t_swift_3_generator::generate_swift_service_client_async_implementation(ofs
 
     out << endl;
 
-    out << indent() << "let transport   = factory.newTransport()" << endl
-        << indent() << "let proto = Protocol(on: transport)" << endl
+    out << indent() << "let transport   = factory.makeTransport()" << endl
+        << indent() << "let out = Out(on: transport)" << endl
         << endl;
 
     generate_swift_service_client_send_async_function_invocation(out, *f_iter);
@@ -1893,7 +1808,8 @@ void t_swift_3_generator::generate_swift_service_client_async_implementation(ofs
       if (!ret_is_void) {
         out << "let result = ";
       }
-      out << "try self.recv_" << (*f_iter)->get_name() << "(on: proto)" << endl;
+      out << "let in = In(on: transport)" << endl;
+      out << "try self.recv_" << (*f_iter)->get_name() << "(on: out)" << endl;
 
       out << indent() << (ret_is_void ? "completion(nil)" : "completion(result, nil)") << endl;
       block_close(out);
@@ -1957,7 +1873,7 @@ void t_swift_3_generator::generate_swift_service_server_implementation(ofstream&
         << endl;
 
     indent_up();
-    out << indent() << "let args = try " << args_type << ".read(from: inProtocol)" << endl
+    out << indent() << "let args = try " << args_type << "(from: inProtocol)" << endl
         << endl
         << indent() << "try inProtocol.readMessageEnd()" << endl
         << endl;
@@ -2027,7 +1943,7 @@ void t_swift_3_generator::generate_swift_service_server_implementation(ofstream&
   out << endl;
 
   // indent(out) << "public func processOnInputProtocol(inProtocol: TProtocol, outputProtocol outProtocol: TProtocol) throws";
-  indent(out) << "public func process(on inProtocol: TProtocol, outProtocol: TProtocol) throws";
+  indent(out) << "public func process(input: Service.InProtocol, output: Service.OutProtocol) throws";
   block_open(out);
 
   out << endl;
@@ -2347,7 +2263,7 @@ string t_swift_3_generator::argument_list(t_struct* tstruct, string protocol_nam
   vector<t_field*>::const_iterator f_iter;
 
   if (include_protocol) {
-    result += protocol_name + ": TProtocol";
+    result += protocol_name;
     if (!fields.empty()) {
       result += ", ";
     }

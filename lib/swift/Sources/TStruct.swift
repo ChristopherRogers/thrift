@@ -32,7 +32,7 @@ public extension TStruct {
   public static var fieldIds: [String: (id: Int32, type: TType)] { return [:] }
   public static var thriftType: TType { return .struct }
   
-  public func write(to proto: TProtocol) throws {
+  public func write<P: TProtocol>(to proto: P) throws {
     // Write struct name first
     try proto.writeStructBegin(name: Self.structName)
     

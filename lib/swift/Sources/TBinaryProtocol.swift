@@ -28,6 +28,7 @@ public class TBinaryProtocol: TProtocol {
   public var messageSizeLimit: UInt32  = 0
   
   public var transport: TTransport
+  public var unconsumedField: TProtocolField?
   
   // class level properties for setting global config (useful for server in lieu of Factory design)
   public static var strictRead: Bool = false
@@ -104,7 +105,7 @@ public class TBinaryProtocol: TProtocol {
   }
   
   public func readStructEnd() throws {
-    return
+    try skipToEndOfStruct()
   }
   
   public func readFieldBegin() throws -> (String, TType, Int32) {

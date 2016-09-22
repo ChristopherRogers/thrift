@@ -22,11 +22,11 @@ import Foundation
 extension Data : TSerializable {
   public static var thriftType: TType { return .string }
   
-  public static func read(from proto: TProtocol) throws -> Data {
-    return try proto.read() as Data
+  public init<P: TProtocol>(from proto: P) throws {
+    self = try proto.read()
   }
   
-  public func write(to proto: TProtocol) throws {
+  public func write<P: TProtocol>(to proto: P) throws {
     try proto.write(self)
   }
 }

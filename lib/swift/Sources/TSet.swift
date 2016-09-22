@@ -136,22 +136,21 @@ public struct TSet<Element : TSerializable & Hashable> : SetAlgebra, Hashable, C
     storage = Storage()
   }
 
-  public static func read(from proto: TProtocol) throws -> TSet {
+  public init<P: TProtocol>(from proto: P) throws {
     let (elementType, size) = try proto.readSetBegin()
     if elementType != Element.thriftType {
       throw TProtocolError(error: .invalidData,
                            extendedError: .unexpectedType(type: elementType))
     }
-    var set = TSet()
+    storage = Storage(minimumCapacity: Int(size))
     for _ in 0..<size {
-      let element = try Element.read(from: proto)
-      set.storage.insert(element)
+      let element = try Element(from: proto)
+      storage.insert(element)
     }
     try proto.readSetEnd()
-    return set
   }
   
-  public func write(to proto: TProtocol) throws {
+  public func write<P: TProtocol>(to proto: P) throws {
     try proto.writeSetBegin(elementType: Element.thriftType, size: Int32(self.count))
     for element in self.storage {
       try Element.write(element, to: proto)

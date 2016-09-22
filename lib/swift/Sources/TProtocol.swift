@@ -50,6 +50,8 @@ public typealias TProtocolField = (name: String, type: TType, fieldID: Int32)
 public protocol TProtocol: class {
   
   var transport: TTransport { get set }
+  var unconsumedField: TProtocolField? { get set }
+  
   init(on transport: TTransport)
   // Reading Methods
   
@@ -107,14 +109,41 @@ public extension TProtocol {
     try value.write(to: self)
     try writeFieldEnd()
   }
-
-  public func validateValue(_ value: Any?, named name: String) throws {
-    if value == nil {
-      throw TProtocolError(error: .unknown, message: "Missing required value for field: \(name)")
+  
+  public func readField<O>(name: String, id: Int32) throws -> O? where O: TSerializable {
+    let fieldValue: O?
+    let field = try self.unconsumedField ?? readFieldBegin()
+    
+    if field.fieldID == id {
+      self.unconsumedField = nil
+      guard field.type == O.thriftType else {
+        try skip(type: field.type)
+        throw TProtocolError(
+            error: .invalidData,
+            extendedError: .unexpectedType(type: field.type))
+      }
+      fieldValue = try O(from: self)
+    } else {
+      self.unconsumedField = field
+      fieldValue = nil
     }
+    
+    try readFieldEnd()
+    return fieldValue
   }
   
-  public func readResultMessageBegin() throws {
+  public func readField<R>(name: String, id: Int32) throws -> R where R: TSerializable {
+    guard let fieldValue: R = try readField(name: name, id: id) else {
+      throw TProtocolError(extendedError: .missingRequiredField(fieldName: name))
+    }
+    return fieldValue
+  }
+  
+  public func readStructEnd() throws {
+    try skipToEndOfStruct()
+  }
+  
+  public func readResultMessage() throws {
     let (_, type, _) = try readMessageBegin();
     if type == .exception {
       let x = try readException()
@@ -124,13 +153,32 @@ public extension TProtocol {
   }
   
   public func readException() throws -> TApplicationError {
-    return try TApplicationError.read(from: self)
+    return try TApplicationError(from: self)
   }
   
   public func writeException(messageName name: String, sequenceID: Int32, ex: TApplicationError) throws {
     try writeMessageBegin(name: name, type: .exception, sequenceID: sequenceID)
     try ex.write(to: self)
     try writeMessageEnd()
+  }
+  
+  public func skipToEndOfStruct() throws {
+    if let fieldMetadata = unconsumedField {
+      defer { self.unconsumedField = nil }
+      if fieldMetadata.type == .stop {
+        return
+      }
+    }
+    while true {
+      let (_, fieldType, _) = try readFieldBegin()
+      if fieldType == .stop {
+        try readFieldEnd()
+        break
+      } else {
+        try skip(type: fieldType)
+        try readFieldEnd()
+      }
+    }
   }
   
   public func skip(type: TType) throws {

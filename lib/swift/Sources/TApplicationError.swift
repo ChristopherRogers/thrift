@@ -107,32 +107,18 @@ public struct TApplicationError : TError {
 extension TApplicationError : TSerializable {
   public static var thriftType: TType { return .struct }
   
-  public static func read(from proto: TProtocol) throws -> TApplicationError {
-    var errorCode: Int = 0
-    var message: String? = nil
+  public init<P: TProtocol>(from proto: P) throws {
     _ = try proto.readStructBegin()
-    fields: while true {
-      let (_, fieldType, fieldID) = try proto.readFieldBegin()
-      
-      switch (fieldID, fieldType) {
-      case (_, .stop):
-        break fields
-      case (1, .string):
-        message = try proto.read()
-      case (2, .i32):
-        errorCode = Int(try proto.read() as Int32)
-      
-      case let (_, unknownType):
-        try proto.skip(type: unknownType)
-      }
-      
-      try proto.readFieldEnd()
-    }
+    
+    let message: String? = try proto.readField(name: "", id: 1)
+    let errorCode: Int = Int(try proto.readField(name: "", id: 2) as Int32)
+    
     try proto.readStructEnd()
-    return TApplicationError(thriftErrorCode: errorCode, message: message)
+    
+    self.init(thriftErrorCode: errorCode, message: message)
   }
 
-  public func write(to proto: TProtocol) throws {
+  public func write<P: TProtocol>(to proto: P) throws {
     try proto.writeStructBegin(name: "TApplicationException")
     
     try proto.writeFieldBegin(name: "message", type: .string, fieldID: 1)

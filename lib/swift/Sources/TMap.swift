@@ -123,7 +123,7 @@ public struct TMap<Key : TSerializable & Hashable, Value : TSerializable>: Colle
     storage = Storage()
   }
    
-  public static func read(from proto: TProtocol) throws -> TMap {
+  public init<P: TProtocol>(from proto: P) throws {
 
     let (keyType, valueType, size) = try proto.readMapBegin()
     if keyType != Key.thriftType {
@@ -136,18 +136,16 @@ public struct TMap<Key : TSerializable & Hashable, Value : TSerializable>: Colle
                            message: "Unexpected TMap Value Type",
                            extendedError: .unexpectedType(type: valueType))
     }
-
-    var map = TMap()
+    storage = Storage(minimumCapacity: Int(size))
     for _ in 0..<size {
-      let key = try Key.read(from: proto)
-      let value = try Value.read(from: proto)
-      map.storage[key] = value
+      let key = try Key(from: proto)
+      let value = try Value(from: proto)
+      storage[key] = value
     }
     try proto.readMapEnd()
-    return map
   }
   
-  public func write(to proto: TProtocol) throws {
+  public func write<P: TProtocol>(to proto: P) throws {
     try proto.writeMapBegin(keyType: Key.thriftType,
                             valueType: Value.thriftType, size: Int32(self.count))
     for (key, value) in self.storage {

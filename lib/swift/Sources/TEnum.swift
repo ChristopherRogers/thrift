@@ -26,16 +26,16 @@ extension TEnum where RawValue == Int32 {
   public static var thriftType: TType { return .i32 }
   public var hashValue: Int { return rawValue.hashValue }
   
-  public static func read(from proto: TProtocol) throws -> Self {
+  public init<P: TProtocol>(from proto: P) throws {
     let raw: RawValue = try proto.read() as Int32
     guard let ret = Self(rawValue: raw) else {
       throw TProtocolError(error: .invalidData,
                            message: "Invalid enum value (\(raw)) for \(Self.self)")
     }
-    return ret
+    self = ret
   }
   
-  public func write(to proto: TProtocol) throws {
+  public func write<P: TProtocol>(to proto: P) throws {
     try proto.write(rawValue)
   }
 }

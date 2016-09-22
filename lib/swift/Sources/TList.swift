@@ -40,22 +40,21 @@ public struct TList<Element : TSerializable> : RandomAccessCollection, MutableCo
   /// Mark: TSerializable
   public static var thriftType : TType { return .list }
 
-  public static func read(from proto: TProtocol) throws -> TList {
+  public init<P: TProtocol>(from proto: P) throws {
     let (elementType, size) = try proto.readListBegin()
     if elementType != Element.thriftType {
       throw TProtocolError(error: .invalidData,
                            extendedError: .unexpectedType(type: elementType))
     }
-    var list = TList()
+    storage.reserveCapacity(Int(size))
     for _ in 0..<size {
-      let element = try Element.read(from: proto)
-      list.storage.append(element)
+      let element = try Element(from: proto)
+      storage.append(element)
     }
     try proto.readListEnd()
-    return list
   }
   
-  public func write(to proto: TProtocol) throws {
+  public func write<P: TProtocol>(to proto: P) throws {
     try proto.writeListBegin(elementType: Element.thriftType, size: Int32(self.count))
     for element in self.storage {
       try Element.write(element, to: proto)

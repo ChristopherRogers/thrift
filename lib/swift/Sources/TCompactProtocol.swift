@@ -48,6 +48,7 @@ public class TCompactProtocol: TProtocol {
   public static let versionMask: UInt8 = 0x1F // 0001 1111
   
   public var transport: TTransport
+  public var unconsumedField: TProtocolField?
   
   var lastField: [UInt8] = []
   var lastFieldId: UInt8 = 0
@@ -281,6 +282,8 @@ public class TCompactProtocol: TProtocol {
   public func readStructEnd() throws {
     lastFieldId = lastField.last ?? 0
     lastField.removeLast()
+    
+    try skipToEndOfStruct()
   }
   
   public func readFieldBegin() throws -> (String, TType, Int32) {
