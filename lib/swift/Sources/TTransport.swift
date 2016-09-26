@@ -60,5 +60,5 @@ public protocol TAsyncTransport : TTransport {
 
 public protocol TAsyncTransportFactory {
   associatedtype Transport : TAsyncTransport
-  func newTransport() -> Transport
+  func makeTransport() -> Transport
 }

@@ -17,8 +17,14 @@
  * under the License.
  */
 
+public protocol TService {
+  associatedtype InProtocol: TProtocol
+  associatedtype OutProtocol: TProtocol
+}
 
-open class TClient<InProtocol: TProtocol, OutProtocol: TProtocol> {
+open class TClient<In: TProtocol, Out: TProtocol>: TService {
+  public typealias InProtocol = In
+  public typealias OutProtocol = Out
   
   public let inProtocol: InProtocol
   public let outProtocol: OutProtocol
@@ -29,10 +35,18 @@ open class TClient<InProtocol: TProtocol, OutProtocol: TProtocol> {
   }
 }
 
-
-open class TAsyncClient<Protocol: TProtocol, Factory: TAsyncTransportFactory> {
+open class TAsyncClient<In, Out, Factory>: TService
+  where
+  In: TProtocol,
+  Out: TProtocol,
+  Factory: TAsyncTransportFactory {
+  
+  public typealias InProtocol = In
+  public typealias OutProtocol = Out
+  
   public var factory: Factory
-  init(with factory: Factory) {
+  
+  public init(with factory: Factory) {
     self.factory = factory
   }
 }

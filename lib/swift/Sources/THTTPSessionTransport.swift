@@ -52,7 +52,7 @@ public class THTTPSessionTransport: TAsyncTransport {
       self.url = url
     }
     
-    public func newTransport() -> THTTPSessionTransport {
+    public func makeTransport() -> THTTPSessionTransport {
       return THTTPSessionTransport(factory: self)
     }
     

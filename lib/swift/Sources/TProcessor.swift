@@ -18,12 +18,13 @@
 */
 
 
-public typealias TProcessorMessageHandler<T> = (Int, TProtocol, TProtocol, T) -> Void
+public typealias TProcessorMessageHandler<T, In, Out> = (Int, In, Out, T) -> Void where In: TProtocol, Out: TProtocol
 
 public protocol TProcessor {
-  associatedtype Service
-  var service: Service { get set }
-  func process(on inProtocol: TProtocol, outProtocol: TProtocol) throws
+  associatedtype Service: TService
+  
   init(service: Service)
+  var service: Service { get set }
+  
+  func process(input: Service.InProtocol, output: Service.OutProtocol) throws
 }
-

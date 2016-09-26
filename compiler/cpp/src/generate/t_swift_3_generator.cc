@@ -1804,11 +1804,13 @@ void t_swift_3_generator::generate_swift_service_client_async_implementation(ofs
     if (!is_oneway) {
       out << indent() << "do";
       block_open(out);
+
+      indent(out) << "let in = In(on: transport)" << endl;
+
       indent(out);
       if (!ret_is_void) {
         out << "let result = ";
       }
-      out << "let in = In(on: transport)" << endl;
       out << "try self.recv_" << (*f_iter)->get_name() << "(on: out)" << endl;
 
       out << indent() << (ret_is_void ? "completion(nil)" : "completion(result, nil)") << endl;

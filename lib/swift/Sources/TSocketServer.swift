@@ -30,17 +30,17 @@ public let TSocketServerClientConnectionFinished = "TSocketServerClientConnectio
 public let TSocketServerProcessorKey = "TSocketServerProcessor"
 public let TSocketServerTransportKey = "TSocketServerTransport"
 
-class TSocketServer<InProtocol: TProtocol, OutProtocol: TProtocol, Processor: TProcessor, Service> where Processor.Service == Service {
+class TSocketServer<Processor: TProcessor> {
   var socketFileHandle: FileHandle
   var processingQueue =  DispatchQueue(label: "TSocketServer.processing",
                                        qos: .background,
                                        attributes: .concurrent)
-  var serviceHandler: Service
+  var serviceHandler: Processor.Service
 
   public init(port: Int,
-              service: Service,
-              inProtocol: InProtocol.Type,
-              outProtocol: OutProtocol.Type,
+              service: Processor.Service,
+              inProtocol: Processor.Service.InProtocol.Type,
+              outProtocol: Processor.Service.OutProtocol.Type,
               processor: Processor.Type) throws {
     // set service handler
     self.serviceHandler = service
@@ -129,11 +129,11 @@ class TSocketServer<InProtocol: TProtocol, OutProtocol: TProtocol, Processor: TP
     let transport = TFileHandleTransport(fileHandle: clientSocket)
     let processor = Processor(service: serviceHandler)
     
-    let inProtocol = InProtocol(on: transport)
-    let outProtocol = OutProtocol(on: transport)
+    let inProtocol = Processor.Service.InProtocol(on: transport)
+    let outProtocol = Processor.Service.OutProtocol(on: transport)
     
     do {
-      try processor.process(on: inProtocol, outProtocol: outProtocol)
+      try processor.process(input: inProtocol, output: outProtocol)
     } catch let error {
       print("Error processign request: \(error)")
     }

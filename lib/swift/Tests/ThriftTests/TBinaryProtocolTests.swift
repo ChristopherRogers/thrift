@@ -122,7 +122,7 @@ class TBinaryProtocolTests: XCTestCase {
     }
     
     do {
-      let readVal = try TApplicationError.read(from: proto)
+      let readVal = try TApplicationError(from: proto)
       XCTAssertEqual(readVal.error.thriftErrorCode, writeVal.error.thriftErrorCode, "Error case mismatch, expected \(readVal.error) got \(writeVal.error)")
       XCTAssertEqual(readVal.message, writeVal.message, "Error message mismatch, expected \(readVal.message) got \(writeVal.message)")
     } catch let error {

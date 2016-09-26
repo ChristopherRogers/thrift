@@ -143,7 +143,7 @@ public extension TProtocol {
     try skipToEndOfStruct()
   }
   
-  public func readResultMessage() throws {
+  public func readResultMessageBegin() throws {
     let (_, type, _) = try readMessageBegin();
     if type == .exception {
       let x = try readException()
